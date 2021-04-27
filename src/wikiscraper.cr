@@ -127,6 +127,26 @@ post "/" do |env|
 end
 
 
+# Error pages
+error 404 do
+  {"error": {
+      "message": "Page not found.",
+    },}.to_json
+end
+
+error 403 do
+  {"error": {
+      "message": "Access forbidden!",
+    },}.to_json
+end
+
+error 500 do
+  {"error": {
+      "message": "Server error",
+    },}.to_json
+end
+
+
 # Helper functions
 
 # Returns the article name as a String from the url.
