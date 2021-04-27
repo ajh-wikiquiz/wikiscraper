@@ -1,0 +1,21 @@
+name: wikiscraper
+version: 0.1.0
+
+authors:
+  - Allen
+
+dependencies:
+  kemal:
+    github: kemalcr/kemal
+  crest:
+    github: mamantoha/crest
+  myhtml:
+    github: kostya/myhtml
+
+targets:
+  wikiscraper:
+    main: src/wikiscraper.cr
+
+crystal: 1.0.0
+
+license: MIT
