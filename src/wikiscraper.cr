@@ -157,13 +157,19 @@ def get_article_contents(
     NamedTuple(number: String, title: String, content: String)).new
 
   table_of_contents.each do |toc|
+    toctext_downcase = toc[2].downcase
     if (
-      toc[2].includes?("See also") ||
-      toc[2].includes?("References") ||
-      toc[2].includes?("Further reading") ||
-      toc[2].includes?("External links")
+      toctext_downcase == "see also" ||
+      toctext_downcase == "notes" ||
+      toctext_downcase == "references" ||
+      toctext_downcase == "further reading" ||
+      toctext_downcase == "popular reading" ||
+      toctext_downcase == "university textbooks and monographs" ||
+      toctext_downcase == "review papers" ||
+      toctext_downcase == "external links" ||
+      toctext_downcase == "videos"
     )
-      break
+      next
     else
       append_section(sections, toc, parser.not_nil!, article)
     end
@@ -204,31 +210,92 @@ def append_section(
           (
             (node.tag_name == "h2" || node.tag_name == "h3") &&
             node.child &&
-            node.child!.attribute_by("class") == "mw-headline"
+            node.child!.attribute_by("class") &&
+            node.child!.attribute_by("class").not_nil!.includes?("mw-headline")
           ) ||
           node.attribute_by("class") == "reflist" ||
           (
             node.tag_name == "div" &&
-            node.attribute_by("id") &&
-            node.attribute_by("id").not_nil! == ("toc")
+            (
+              (
+                node.attribute_by("id") &&
+                node.attribute_by("id").not_nil! == ("toc")
+              ) ||
+              (
+                node.attribute_by("class") &&
+                (
+                  node.attribute_by("class").not_nil!.includes?("toclimit-4")
+                )
+              )
+            )
           )
         )
           break
         end
-        # Ignore captions.
-        if !(
-          node.tag_name == "div" &&
-          node.attribute_by("class") &&
-          node.attribute_by("class").not_nil!.includes?("thumb")
+        # Ignore captions, sidebars, and random styles.
+        if (
+          (
+            node.tag_name == "div" &&
+            node.attribute_by("class") &&
+            (
+              node.attribute_by("class").not_nil!.includes?("thumb") ||
+              node.attribute_by("class").not_nil!.includes?("hatnote") ||
+              node.attribute_by("class").not_nil!.includes?("shortdescription") ||
+              node.attribute_by("class").not_nil!.includes?("mod-gallery")
+            )
+          ) ||
+          (
+            node.tag_name == "table"
+          ) ||
+          (
+            node.tag_name == "style"
+          )
         )
+        elsif (
+          node.tag_name == "span" &&
+          node.attribute_by("class") &&
+          node.attribute_by("class").not_nil!.includes?("mwe-math-element") &&
+          node.child &&
+          node.child!.child &&
+          node.child!.child!.attribute_by("alttext")
+        )
+          # Math element
+          content += node.child!.child!.attribute_by("alttext").not_nil!
+        elsif (
+          node.tag_name == "dl" &&
+          node.child &&
+          node.child!.tag_name == "dd" &&
+          node.child!.child &&
+          node.child!.child!.tag_name == "span" &&
+          node.child!.child!.child &&
+          node.child!.child!.child!.tag_name == "span" &&
+          node.child!.child!.child!.child &&
+          node.child!.child!.child!.child!.tag_name == "math" &&
+          node.child!.child!.child!.child!.attribute_by("alttext")
+        )
+          # Math element
+          content += node.child!.child!.child!.child!.attribute_by("alttext").not_nil!
+        elsif (
+          node.tag_name == "span" &&
+          node.attribute_by("class") &&
+          node.attribute_by("class").not_nil!.includes?("mwe-math-element") &&
+          node.child &&
+          node.child!.child &&
+          node.child!.child!.attribute_by("alttext")
+        )
+          # Math element
+          content += node.child!.child!.attribute_by("alttext").not_nil!
+        else
           # Strip all references and append.
-          content += node.inner_text.gsub(/[[0-9]+]/, "")
+          content += node.inner_text.gsub(/\[[0-9]+\]|\[[a-z]+\]|\[edit\]|\[Note [0-9]+\]/, "")
         end
         node = node.next
       end
     end
   sections.push({"number": toc[1], "title": toc[2], "content": content})
 end
+
+# TODO: Create recursive function to get latex from alttext.
 
 
 # Main
