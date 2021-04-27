@@ -1,6 +1,6 @@
 # wikiscraper
 
-Example input
+### Example input
 ```
 {
     "url": "https://en.wikipedia.org/wiki/Pet_door"
@@ -13,7 +13,7 @@ OR
 }
 ```
 
-Output
+### Example output
 ```
 {
     "data": {
