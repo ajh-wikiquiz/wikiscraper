@@ -1,7 +1,7 @@
 # wikiscraper
 Parses and returns text of the given Wikipedia article broken up into sections.
 
-This is intended to be deployed as a web service. A live example can be found at https://ajh-wikiscraper.herokuapp.com/.
+This is intended to be deployed as a web service. A live example can be found at https://ajh-wikiscraper.herokuapp.com/?url=https://en.wikipedia.org/wiki/Pet_door.
 The wikiscraper accepts HTTP GET and POST requests. The POST requests must be in JSON format.
 
 
@@ -10,23 +10,14 @@ The wikiscraper accepts HTTP GET and POST requests. The POST requests must be in
 {"url": "https://en.wikipedia.org/wiki/Pet_door"}
 ```
 
+Set "type" to "html" to return the unparsed HTML text.
 ```
-{"article": "Pet door"}
-```
-
-article is ignored if url is set. In other words, url is prioritized over article.
-```
-{"article": "gibberish", "url": "https://en.wikipedia.org/wiki/Pet_door"}
+{"url": "https://en.wikipedia.org/wiki/Pet_door", "type": "html"}
 ```
 
-As long as /wiki/ is in the URL, the scraper can attempt to parse the article.
+Set "type" to "wikitext" to return the unparsed wikitext.
 ```
-{"url": "https://www.mediawiki.org/wiki/Hackathons"}
-```
-
-If the parsed text isn't to your liking, setting raw to true will return the unparsed text.
-```
-{"url": "https://www.mediawiki.org/wiki/Hackathons", "raw": true}
+{"url": "https://en.wikipedia.org/wiki/Pet_door", "type": "wikitext"}
 ```
 
 
@@ -34,51 +25,53 @@ If the parsed text isn't to your liking, setting raw to true will return the unp
 ```
 {
     "data": {
-        "article": "Pet door",
         "contents": [
             {"number": 0, "title": "Pet door", "content": "A pet door or pet..."},
             {"number": 1, "title": "Purpose", "content": "A pet door is found..."},
             ...
         ]
-    }
+    },
+    "error": null
 }
 ```
 
-With raw set to true
+With type set to "html"
 ```
 {
-    "data": {
-        "article": "Pet door",
-        "contents": "<div class=\"mw-parser-output\">..."
-    }
+    "data": {"contents": ["<div class=\"mw-parser-output\">..."]},
+    "error": null
 }
 ```
 
-When both the article name and url are missing, or when the url doesn't contain /wiki/
+With type set to "wikitext"
 ```
 {
-    "error":
-    {
-      "message": "An article name or valid Wikipedia URL must be passed."
-    }
+    "data": {"contents": ["[[File:Doggy door exit.JPG|thumb|A dog..."]},
+    "error": null
+}
+```
+
+When the url is missing
+```
+{
+    "data": null,
+    "error": "A valid Wikipedia URL must be passed."
 }
 ```
 
 When the article doesn't exist
 ```
 {
-    "data": {
-        "article": "Pet_dooro",
-        "contents": "The page you specified doesn't exist."
-    }
+    "data": null,
+    "error": "The page you specified doesn't exist."
 }
 ```
 
 
 ## Development
 ```
-shard install
-crystal run src/wikiscraper.cr
+shards install
+crystal run src/web_service.cr
 ```
 
 

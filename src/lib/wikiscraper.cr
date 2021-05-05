@@ -1,229 +1,119 @@
 require "crest"
-require "kemal"
 require "myhtml"
 
 require "json"
 
-# Used when just the article name is passed in.
-ENGLISH_WIKIPEDIA_API_ENDPOINT = "https://en.wikipedia.org/w/api.php"
-
-
-# CORS
-
-options "/*" do |env|
-  env.response.headers["Allow"] = "HEAD,GET,PUT,POST,DELETE,OPTIONS"
-  env.response.headers["Access-Control-Allow-Headers"] = "X-Requested-With, X-HTTP-Method-Override, Content-Type, Cache-Control, Accept"
-  env.response.headers["Access-Control-Allow-Origin"] = "*"
-
-  halt env, status_code: 200
+enum ContentType
+  ParsedHTML
+  ParsedWikiText
+  HTML
+  WikiText
 end
-
-before_get "/" do |env|
-  env.response.headers["Access-Control-Allow-Origin"] = "*"
-  env.response.content_type = "application/json"
-end
-
-before_post "/" do |env|
-  env.response.headers["Access-Control-Allow-Origin"] = "*"
-  env.response.content_type = "application/json"
-end
-
-
-# Routes
-
-get "/" do |env|
-  # Check parameters.
-  if env.params.query.size != 0
-    if (
-      env.params.query.has_key?("url") &&
-      !env.params.query["url"].nil? &&
-      env.params.query["url"] != ""
-    )
-      p! env.params.query["url"]
-      url = env.params.query["url"].as(String)
-    elsif env.params.query.has_key?("article") && !env.params.query["article"].nil?
-      article = env.params.query["article"].as(String)
-    end
-
-    if (
-      env.params.query.has_key?("raw") &&
-      !env.params.query["raw"].nil? &&
-      env.params.query["raw"].as(String).downcase == "true"
-    )
-      is_raw = true
-    end
-  end
-
-  # Get article contents.
-  if url
-    article_contents = get_article_contents(url: url, raw?: is_raw)
-    article = get_article_name_from(url: url)
-  elsif article
-    article_contents = get_article_contents(article: article, raw?: is_raw)
-  else
-    next {"error": {
-      "message": "A valid Wikipedia url or article name must be passed.",
-    },}.to_json
-  end
-
-  # Return article contents.
-  next {
-    "data":
-      {
-        "article": article,
-        "contents": article_contents,
-      },
-  }.to_json
-end
-
-post "/" do |env|
-  # Check parameters.
-  if env.params.json.size != 0
-    params = env.params.json
-  elsif env.params.body.size != 0
-    params = env.params.body
-  end
-
-  if params
-    if (
-      params.has_key?("url") &&
-      !params["url"].nil? &&
-      params["url"] != ""
-    )
-      url = params["url"].as(String)
-    elsif params.has_key?("article") && !params["article"].nil?
-      article = params["article"].as(String)
-    end
-
-    if (
-      params.has_key?("raw") &&
-      !params["raw"].nil? &&
-      params["raw"].as(String).downcase == "true"
-    )
-      is_raw = true
-    end
-  end
-
-  # Get article contents.
-  if url
-    article_contents = get_article_contents(url: url, raw?: is_raw)
-    article = get_article_name_from(url)
-  elsif article
-    article_contents = get_article_contents(article: article, raw?: is_raw)
-  else
-    next {"error": {
-      "message": "An article name or valid Wikipedia URL must be passed.",
-    },}.to_json
-  end
-
-  # Return article contents.
-  next {
-    "data":
-      {
-        "article": article,
-        "contents": article_contents,
-      },
-  }.to_json
-end
-
-
-# Error pages
-error 404 do
-  {"error": {
-      "message": "Page not found.",
-    },}.to_json
-end
-
-error 403 do
-  {"error": {
-      "message": "Access forbidden!",
-    },}.to_json
-end
-
-error 500 do
-  {"error": {
-      "message": "Server error",
-    },}.to_json
-end
-
-
-# Helper functions
 
 # Returns the article name as a String from the url.
-def get_article_name_from(url : String)
-  wiki = url.index("/wiki/")
-  id = url.rindex("#")
-  if wiki
-    return id ? url[wiki+6..id-1] : url[wiki+6..]  # "/wiki/" has a length of 6
+def get_article_name_from_url(url : String)
+  last_slash = url.rindex("/")
+  id = url.index("#")
+  if last_slash
+    # "/" has a length of 1
+    return id ? url[last_slash+1..id-1] : url[last_slash+1..]
   else
     return nil
   end
 end
 
-# Returns the article contents as a Hash from the article.
+# Returns the article name as a String from the html parser.
+def get_article_name_from_parser(parser : Myhtml::Parser)
+  parser
+    .css(%q{h1[id="firstHeading"]})
+    .each do |node|
+      return node.inner_text
+    end
+end
+
+# Returns the base url from the passed url.
+def get_base_url(url : String)
+  return url.match(/([a-z]+:\/\/[^\/]+)/).try &.[0]
+end
+
+# Returns the article contents as an Array of NamedTuples from the article.
 def get_article_contents(
-  article : String | Nil = nil,
   url : String | Nil = nil,
-  raw? : Bool | Nil = false,
+  type : ContentType | Nil = ContentType::ParsedHTML,
 )
-  # Either article or url must be passed into this function.
-  if !article && !url
+  # url must be passed into this function.
+  if !url
     return nil
   end
 
   # Get Wikipedia contents.
-  if url
-    article = get_article_name_from(url)
-    if !article
-      return nil
+  if type == ContentType::WikiText
+    # Special wikimedia endpoints
+    special_wikimedia = ""
+    if (
+      url.includes?(".mediawiki.org") ||
+      url.includes?(".wikimedia.org") ||
+      url.includes?(".wikipedia.org")
+    )
+      special_wikimedia = "w/"
     end
 
     begin
-      wikitext = Crest.get(url).body
+      wikitext = JSON.parse(Crest.get(
+        "#{get_base_url(url)}/#{special_wikimedia}api.php?action=parse&" +
+        "page=#{get_article_name_from_url(url)}&prop=wikitext&" +
+        "formatversion=2&format=json"
+      ).body)
     rescue ex : Crest::NotFound
-      return "The page you specified doesn't exist."
+      return "Could not find wikitext for article."
     rescue ex : Crest::InternalServerError
-      return "Wikipedia Internal Server Error"
+      return "Received a wiki internal server error."
     end
 
-    if raw?
-      return wikitext
-    end
-
-    parser = Myhtml::Parser.new(wikitext)
-
-  elsif article
-    response = JSON.parse(Crest.get(
-      ENGLISH_WIKIPEDIA_API_ENDPOINT,
-      params: {
-        :action => "parse",
-        :page => article,
-        :prop => "text",
-        :formatversion => 2,
-        :format => "json",
-      }
-    ).body)
-    if response["parse"]? && response["parse"]["text"]?
-      wikitext = response["parse"]["text"].as_s
-    elsif response["error"]? && response["error"]["info"]?
-      return response["error"]["info"].as_s
+    if (
+      !wikitext["parse"].nil? &&
+      !wikitext["parse"]["wikitext"].nil?
+    )
+      return [wikitext["parse"]["wikitext"]]
     else
+      return "Could not get wikitext."
+    end
+  end
+
+  begin
+    raw_html = Crest.get(url).body
+  rescue ex : Crest::NotFound
+    return "The page you specified doesn't exist."
+  rescue ex : Crest::InternalServerError
+    return "Received a wiki internal server error."
+  end
+
+  if type == ContentType::HTML
+    return [raw_html]
+  end
+
+  # if type == ContentType::ParsedHtml
+  parser = Myhtml::Parser.new(raw_html)
+
+  if !is_mediawiki?(parser)
+    return "Cannot parse page since it is not a wiki article."
+  end
+
+  article = get_article_name_from_parser(parser.not_nil!)
+  if !article
+    article = get_article_name_from_url(url)
+    if !article
       return nil
     end
-
-    if raw?
-      return wikitext
-    end
-
-    parser = Myhtml::Parser.new(wikitext)
-
-  else
-    return nil
   end
 
   # Add summary section.
   table_of_contents = [
-    {"id": ".mw-parser-output", "tocnumber": "0", "toctext": article.not_nil!}
+    {
+      "id": ".mw-parser-output",
+      "tocnumber": "0",
+      "toctext": article.not_nil!
+    }
   ]
   # Read table of contents.
   parser.not_nil!
@@ -292,7 +182,7 @@ def append_section(
           if math_element = math_element?(node)
             content += " #{math_element} "
           else
-            content += remove_references(node.inner_text)
+            content += " #{remove_references(node.inner_text)} "
           end
         end
 
@@ -308,6 +198,21 @@ def append_section(
       "content": replace_whitespaces(content).strip()
     }
   )
+end
+
+# Returns true if the body tag of the HTML contains the mediawiki class.
+def is_mediawiki?(parser : Myhtml::Parser)
+  parser
+    .css(%q{body})
+    .each do |node|
+      if (
+        node.attribute_by("class") &&
+        node.attribute_by("class").not_nil!.includes?("mediawiki")
+      )
+        return true
+      end
+    end
+  return false
 end
 
 # Returns true if the string matches a section to be skipped, else false.
@@ -391,7 +296,8 @@ def ignore?(node : Myhtml::Node)
         node.attribute_by("class").not_nil!.includes?("thumb") ||
         node.attribute_by("class").not_nil!.includes?("hatnote") ||
         node.attribute_by("class").not_nil!.includes?("shortdescription") ||
-        node.attribute_by("class").not_nil!.includes?("mod-gallery")
+        node.attribute_by("class").not_nil!.includes?("mod-gallery") ||
+        node.attribute_by("class").not_nil!.includes?("quotebox")
       )
     ) ||
     (
@@ -480,9 +386,3 @@ end
 def replace_whitespaces(inner_text : String)
   return inner_text.gsub(/\t|\s\s+/, " ")
 end
-
-
-# Main
-
-Kemal.config.env = "production"
-Kemal.run

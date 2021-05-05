@@ -1,5 +1,5 @@
-name: wikiscraper
-version: 0.1.0
+name: wikiscraper_web
+version: 0.1.1
 
 authors:
   - Allen
@@ -13,8 +13,8 @@ dependencies:
     github: kostya/myhtml
 
 targets:
-  wikiscraper:
-    main: src/wikiscraper.cr
+  wikiscraper_web:
+    main: src/wikiscraper_web.cr
 
 crystal: 1.0.0
 
