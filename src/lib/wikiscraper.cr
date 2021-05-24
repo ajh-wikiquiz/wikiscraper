@@ -226,7 +226,9 @@ def skip_section?(toctext : String)
     toctext_downcase == "popular reading" ||
     toctext_downcase == "university textbooks and monographs" ||
     toctext_downcase == "review papers" ||
+    toctext_downcase == "external" ||
     toctext_downcase == "external links" ||
+    toctext_downcase == "bibliography" ||
     toctext_downcase == "videos"
   )
     return true

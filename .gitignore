@@ -2,5 +2,10 @@
 /lib/
 /bin/
 /.shards/
+/.terraform/
 *.dwarf
-/wikiscraper
+/.terraform.lock.hcl
+/wikiscraper_web
+/terraform.tfstate*
+/terraform.tfvars
+/fly.toml

@@ -28,7 +28,15 @@ shards:
     git: https://github.com/kostya/myhtml.git
     version: 1.5.4
 
+  pool:
+    git: https://github.com/ysbaddaden/pool.git
+    version: 0.2.4
+
   radix:
     git: https://github.com/luislavena/radix.git
     version: 0.4.1
+
+  redis:
+    git: https://github.com/stefanwille/crystal-redis.git
+    version: 2.7.0
 

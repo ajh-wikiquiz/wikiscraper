@@ -1,5 +1,5 @@
 name: wikiscraper_web
-version: 0.1.1
+version: 0.2.0
 
 authors:
   - Allen
@@ -11,6 +11,9 @@ dependencies:
     github: mamantoha/crest
   myhtml:
     github: kostya/myhtml
+  redis:
+    github: stefanwille/crystal-redis
+    version: ~> 2.7.0
 
 targets:
   wikiscraper_web:

@@ -1,6 +1,28 @@
 require "./lib/wikiscraper.cr"
 
 require "kemal"
+require "redis"
+
+
+# Cache
+
+cache = nil
+env_var = nil
+if ENV.has_key?("FLY_REDIS_CACHE_URL")
+  env_var = "FLY_REDIS_CACHE_URL"
+elsif ENV.has_key?("REDIS_URL")
+  env_var = "REDIS_URL"
+end
+if env_var
+  cache = Redis::PooledClient.new(
+    url: ENV[env_var],
+    database: 0,
+    command_timeout: 1.seconds,
+    connect_timeout: 1.seconds,
+    pool_size: 19,
+    pool_timeout: 1.0,
+  )
+end
 
 
 # CORS
@@ -34,7 +56,8 @@ get "/" do |env|
 
   # Get article contents.
   if url
-    article_contents = get_article_contents(url: url, type: type)
+    article_contents = get_article_contents_cache(
+      url: url, type: type, cache: cache)
   end
 
   # Error handling
@@ -46,7 +69,6 @@ get "/" do |env|
 
   if error_message
     next {
-      "data": nil,
       "error": {"message": error_message,},
     }.to_json
   end
@@ -54,50 +76,12 @@ get "/" do |env|
   # Return article contents.
   next {
     "data": {"contents": article_contents,},
-    "error": nil,
-  }.to_json
-end
-
-post "/" do |env|
-  # Check parameters.
-  if env.params.json.size != 0
-    params = env.params.json
-  elsif env.params.body.size != 0
-    params = env.params.body
-  end
-
-  if params
-    url, type = get_query_parameters(params)
-  end
-
-  # Get article contents.
-  if url
-    article_contents = get_article_contents(url: url, type: type)
-  end
-
-  # Error handling
-  if !article_contents
-    error_message = "A valid Wikipedia url must be passed."
-  elsif article_contents.is_a?(String)
-    error_message = article_contents
-  end
-
-  if error_message
-    next {
-      "data": nil,
-      "error": {"message": error_message,},
-    }.to_json
-  end
-
-  # Return article contents.
-  next {
-    "data": {"contents": article_contents,},
-    "error": nil,
   }.to_json
 end
 
 
 # Error pages
+
 error 404 do
   {"error": {
       "message": "Page not found.",
@@ -153,8 +137,45 @@ def get_query_parameters(params)
   return url, type
 end
 
+# Returns article contents from cache first if available.
+def get_article_contents_cache(
+  url : String | Nil = nil,
+  type : ContentType | Nil = ContentType::ParsedHTML,
+  cache : Redis::PooledClient | Nil = nil,
+)
+  # url must be passed into this function.
+  if !url
+    return nil
+  end
+
+  type_str = ""
+  if type
+    type_str = type
+  end
+
+  if cache
+    begin
+      cached_value = cache.get("#{url}\n#{type_str}")
+      if cached_value
+          results = JSON.parse(cached_value)
+      else
+        results = get_article_contents(url: url, type: type)
+        cache.set("#{url}\n#{type_str}", results.to_json)
+      end
+    rescue ex : Redis::Error | Redis::PoolTimeoutError | Redis::CommandTimeoutError | JSON::ParseException
+      results = get_article_contents(url: url, type: type)
+    end
+  else
+    results = get_article_contents(url: url, type: type)
+  end
+
+  return results
+end
+
 
 # Main
 
 Kemal.config.env = "production"
+ENV["PORT"] ||= "3000"
+Kemal.config.port = ENV["PORT"].to_i
 Kemal.run

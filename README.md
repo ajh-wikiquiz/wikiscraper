@@ -2,27 +2,29 @@
 Parses and returns text of the given Wikipedia article broken up into sections.
 
 This is intended to be deployed as a web service. A live example can be found at https://ajh-wikiscraper.herokuapp.com/?url=https://en.wikipedia.org/wiki/Pet_door.
-The wikiscraper accepts HTTP GET and POST requests. The POST requests must be in JSON format.
+The wikiscraper accepts HTTP GET requests.
 
 
 ### Example inputs
 ```
-{"url": "https://en.wikipedia.org/wiki/Pet_door"}
+url=https://en.wikipedia.org/wiki/Pet_door
 ```
 
 Set "type" to "html" to return the unparsed HTML text.
 ```
-{"url": "https://en.wikipedia.org/wiki/Pet_door", "type": "html"}
+url=https://en.wikipedia.org/wiki/Pet_door
+type=html
 ```
 
 Set "type" to "wikitext" to return the unparsed wikitext.
 ```
-{"url": "https://en.wikipedia.org/wiki/Pet_door", "type": "wikitext"}
+url=https://en.wikipedia.org/wiki/Pet_door
+type=wikitext
 ```
 
 
 ### Example outputs
-```
+```json
 {
     "data": {
         "contents": [
@@ -31,38 +33,33 @@ Set "type" to "wikitext" to return the unparsed wikitext.
             ...
         ]
     },
-    "error": null
 }
 ```
 
 With type set to "html"
-```
+```json
 {
     "data": {"contents": ["<div class=\"mw-parser-output\">..."]},
-    "error": null
 }
 ```
 
 With type set to "wikitext"
-```
+```json
 {
     "data": {"contents": ["[[File:Doggy door exit.JPG|thumb|A dog..."]},
-    "error": null
 }
 ```
 
 When the url is missing
-```
+```json
 {
-    "data": null,
     "error": "A valid Wikipedia URL must be passed."
 }
 ```
 
 When the article doesn't exist
-```
+```json
 {
-    "data": null,
     "error": "The page you specified doesn't exist."
 }
 ```
@@ -71,7 +68,7 @@ When the article doesn't exist
 ## Development
 ```
 shards install
-crystal run src/web_service.cr
+crystal run src/wikiscraper_web.cr
 ```
 
 

@@ -1,0 +1,17 @@
+/docs/
+/lib/
+/bin/
+/.git/
+/.shards/
+*.dwarf
+/wikiscraper_web
+**/.vscode/
+/*terraform*
+/.dockerignore
+/.editorconfig
+/.gitignore
+/.travis.yml
+/fly.toml
+/Dockerfile
+/LICENSE
+/README.md
