@@ -6,12 +6,14 @@ require "redis"
 
 # Cache
 
+CACHE_TTL = 60 * 60  # in seconds
+
 cache = nil
 env_var = nil
-if ENV.has_key?("FLY_REDIS_CACHE_URL")
-  env_var = "FLY_REDIS_CACHE_URL"
-elsif ENV.has_key?("REDIS_URL")
+if ENV.has_key?("REDIS_URL")
   env_var = "REDIS_URL"
+elsif ENV.has_key?("FLY_REDIS_CACHE_URL")
+  env_var = "FLY_REDIS_CACHE_URL"
 end
 if env_var
   cache = Redis::PooledClient.new(
@@ -154,13 +156,14 @@ def get_article_contents_cache(
   end
 
   if cache
+    cache_key = %(#{ENV.fetch("CURRENT_RELEASE_ID", "")}\nget_article_contents_cache\n#{url}\n#{type_str})
     begin
-      cached_value = cache.get("#{url}\n#{type_str}")
+      cached_value = cache.get(cache_key)
       if cached_value
           results = JSON.parse(cached_value)
       else
         results = get_article_contents(url: url, type: type)
-        cache.set("#{url}\n#{type_str}", results.to_json)
+        cache.set(cache_key, results.to_json, ex: CACHE_TTL)
       end
     rescue ex : Redis::Error | Redis::PoolTimeoutError | Redis::CommandTimeoutError | JSON::ParseException
       results = get_article_contents(url: url, type: type)
@@ -175,7 +178,13 @@ end
 
 # Main
 
-Kemal.config.env = "production"
-ENV["PORT"] ||= "3000"
-Kemal.config.port = ENV["PORT"].to_i
-Kemal.run
+Kemal.config do |config|
+  config.port = ENV.fetch("PORT", "3000").to_i
+  config.env = "production"
+  config.serve_static = false
+  config.logging = false
+end
+Kemal.run do |config|
+  server = config.server.not_nil!
+  server.bind_tcp "0.0.0.0", config.port, reuse_port: true
+end

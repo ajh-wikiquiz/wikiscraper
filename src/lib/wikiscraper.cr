@@ -368,7 +368,7 @@ def math_element?(node : Myhtml::Node | Nil)
     end
 
     # If the next element has the same tag name, it's likely to be a different
-    # math element if it is one.
+    # math element.
     if current.next && current.tag_name == current.next!.tag_name
       break
     end
