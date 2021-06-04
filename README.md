@@ -2,7 +2,7 @@
 Parses and returns text of the given Wikipedia article broken up into sections.
 
 This is intended to be deployed as a web service. A live example can be found at https://ajh-wikiscraper.herokuapp.com/?url=https://en.wikipedia.org/wiki/Pet_door.
-The wikiscraper accepts HTTP GET requests.
+The wikiscraper accepts HTTP GET and POST requests.
 
 
 ### Example inputs

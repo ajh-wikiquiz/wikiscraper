@@ -81,6 +81,43 @@ get "/" do |env|
   }.to_json
 end
 
+post "/" do |env|
+  # Check parameters.
+  if env.params.json.size != 0
+    params = env.params.json
+  elsif env.params.body.size != 0
+    params = env.params.body
+  end
+
+  if params
+    url, type = get_query_parameters(params)
+  end
+
+  # Get article contents.
+  if url
+    article_contents = get_article_contents_cache(
+      url: url, type: type, cache: cache)
+  end
+
+  # Error handling
+  if !article_contents
+    error_message = "A valid Wikipedia url must be passed."
+  elsif article_contents.is_a?(String)
+    error_message = article_contents
+  end
+
+  if error_message
+    next {
+      "error": {"message": error_message,},
+    }.to_json
+  end
+
+  # Return article contents.
+  next {
+    "data": {"contents": article_contents,},
+  }.to_json
+end
+
 
 # Error pages
 
