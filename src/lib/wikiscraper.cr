@@ -165,7 +165,13 @@ def append_section(
     .css(css_selector)
     .each do |node|
       if toc["toctext"] != article
-        node = node.parent!.next!
+        # Sometimes there are two elements with the same id, one nested in the
+        # other.
+        if node.parent!.next
+          node = node.parent!.next!
+        else
+          node = node.parent!.parent!.next!
+        end
       else
         node = node.child!
       end
